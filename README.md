@@ -26,7 +26,7 @@
 - [x] ubuntu 컨테이너 진입 및 attach/exec 차이 정리
 - [x] Dockerfile 커스텀 이미지 빌드/실행
 - [x] 포트 매핑 접속 (브라우저 화면 첨부)
-- [ ] 바인드 마운트 반영 (변경 전/후 비교)
+- [x] 바인드 마운트 반영 (변경 전/후 비교)
 - [ ] Docker 볼륨 영속성 (컨테이너 삭제 전/후 비교)
 - [ ] Git 설정 (`git config --list`)
 - [ ] VSCode GitHub 연동 및 저장소 공개
@@ -45,6 +45,7 @@
 | ubuntu 진입 | `docker exec`, `docker attach`, `docker ps -a` | 내부 명령 출력과 exec/attach 후 컨테이너 상태 차이 | [5.6](#56-ubuntu-컨테이너-진입과-attachexec-비교), [전체 로그](docs/logs/06-ubuntu-attach-exec.log) |
 | 커스텀 이미지 | `docker build`, `docker ps`, `wget -S` | 빌드 성공, `healthy` 상태, 페이지 응답과 `X-App-Env` 헤더 | [5.7](#57-dockerfile-커스텀-이미지), [전체 로그](docs/logs/07-custom-image.log) |
 | 포트 매핑 | `docker port`, `curl`, 브라우저, `docker logs` | 매핑 전 접속 실패, 8080/8081 접속 성공, 브라우저 요청 기록 | [5.8](#58-포트-매핑-접속), [전체 로그](docs/logs/08-port-mapping.log) |
+| 바인드 마운트 | `docker inspect`, `curl`, `docker exec cat` | 호스트 수정 전/후 응답 비교, 마운트 없는 컨테이너와 비교 | [5.9](#59-바인드-마운트-반영), [전체 로그](docs/logs/09-bind-mount.log) |
 
 ## 5. 수행 로그
 
@@ -593,6 +594,72 @@ $ docker logs e1-1-web-8080 2>&1 | grep "GET / " | tail -2 | cut -d" " -f1-9
 $ docker logs e1-1-web-8081 2>&1 | grep "GET / " | tail -2 | cut -d" " -f1-9
 172.17.0.1 - - [06/Nov/2026:05:31:09 +0000] "GET / HTTP/1.1" 200
 172.17.0.1 - - [06/Nov/2026:05:31:45 +0000] "GET / HTTP/1.1" 200
+```
+
+### 5.9 바인드 마운트 반영
+
+이미지에 `COPY`한 파일은 빌드 시점의 복사본입니다. 바인드 마운트는 호스트 폴더를 컨테이너 경로에 직접 연결하므로, 호스트에서 고친 내용이 재빌드 없이 바로 반영됩니다. 비교를 위해 마운트한 컨테이너(8080)와 마운트하지 않은 컨테이너(8081)를 함께 실행했습니다. 전체 출력은 [docs/logs/09-bind-mount.log](docs/logs/09-bind-mount.log)에 있습니다.
+
+아래는 Windows Git Bash 기준입니다. `export MSYS_NO_PATHCONV=1`을 먼저 실행하고, Windows 형식 경로를 얻기 위해 `$(pwd -W)`를 사용했습니다. Linux나 macOS에서는 `$(pwd)`를 사용합니다.
+
+**실행과 변경 전 확인**
+
+```console
+$ mkdir -p practice/bind-site
+
+$ echo "<h1>bind mount: before</h1>" > practice/bind-site/index.html
+
+$ docker run -d -p 8080:80 --name e1-1-bind -v "$(pwd -W)/practice/bind-site:/usr/share/nginx/html" e1-1-web:1.0
+69c3d32f474e9266ef5933e76a907d8c7c8b4154de364b405b3b26231a3e11bf
+
+$ docker run -d -p 8081:80 --name e1-1-nobind e1-1-web:1.0
+139acff3397f9f7a2f559b15a07534a4c8e39dd5e5c2fd3184c826a304930707
+
+$ docker inspect -f "{{range .Mounts}}{{.Type}} -> {{.Destination}}{{end}}" e1-1-bind
+bind -> /usr/share/nginx/html
+
+$ curl -sS -m 5 http://localhost:8080/
+<h1>bind mount: before</h1>
+
+$ curl -sS -m 5 http://localhost:8081/ | grep "<h1>"
+  <h1>E1-1 개발 워크스테이션</h1>
+```
+
+**호스트에서 수정한 뒤 확인 (재빌드, 재시작 없음)**
+
+```console
+$ echo "<h1>bind mount: after</h1>" > practice/bind-site/index.html
+
+$ curl -sS -m 5 http://localhost:8080/
+<h1>bind mount: after</h1>
+
+$ curl -sS -m 5 http://localhost:8081/ | grep "<h1>"
+  <h1>E1-1 개발 워크스테이션</h1>
+
+$ docker exec e1-1-bind cat /usr/share/nginx/html/index.html
+<h1>bind mount: after</h1>
+```
+
+**컨테이너에서 쓴 파일과 삭제 후 상태**
+
+연결은 양방향입니다. 컨테이너에서 만든 파일이 호스트에 생겼고, 컨테이너를 삭제해도 호스트 파일은 남았습니다.
+
+```console
+$ docker exec e1-1-bind sh -c "echo from-container > /usr/share/nginx/html/from-container.txt"
+
+$ cat practice/bind-site/from-container.txt
+from-container
+
+$ docker rm -f e1-1-bind e1-1-nobind
+e1-1-bind
+e1-1-nobind
+
+$ ls practice/bind-site
+from-container.txt
+index.html
+
+$ cat practice/bind-site/index.html
+<h1>bind mount: after</h1>
 ```
 
 ## 6. 트러블슈팅

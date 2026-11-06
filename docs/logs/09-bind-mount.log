@@ -1,0 +1,67 @@
+$ mkdir -p practice/bind-site
+[exit code: 0]
+
+$ echo "<h1>bind mount: before</h1>" > practice/bind-site/index.html
+[exit code: 0]
+
+$ docker run -d -p 8080:80 --name e1-1-bind -v "$(pwd -W)/practice/bind-site:/usr/share/nginx/html" e1-1-web:1.0
+69c3d32f474e9266ef5933e76a907d8c7c8b4154de364b405b3b26231a3e11bf
+[exit code: 0]
+
+$ docker run -d -p 8081:80 --name e1-1-nobind e1-1-web:1.0
+139acff3397f9f7a2f559b15a07534a4c8e39dd5e5c2fd3184c826a304930707
+[exit code: 0]
+
+$ docker inspect -f "{{range .Mounts}}{{.Type}} -> {{.Destination}}{{end}}" e1-1-bind
+bind -> /usr/share/nginx/html
+[exit code: 0]
+
+# [변경 전]
+$ curl -sS -m 5 http://localhost:8080/
+<h1>bind mount: before</h1>
+[exit code: 0]
+
+$ curl -sS -m 5 http://localhost:8081/ | grep "<h1>"
+  <h1>E1-1 개발 워크스테이션</h1>
+[exit code: 0]
+
+# [호스트에서 파일 수정, 재빌드와 재시작 없음]
+$ echo "<h1>bind mount: after</h1>" > practice/bind-site/index.html
+[exit code: 0]
+
+# [변경 후]
+$ curl -sS -m 5 http://localhost:8080/
+<h1>bind mount: after</h1>
+[exit code: 0]
+
+$ curl -sS -m 5 http://localhost:8081/ | grep "<h1>"
+  <h1>E1-1 개발 워크스테이션</h1>
+[exit code: 0]
+
+$ docker exec e1-1-bind cat /usr/share/nginx/html/index.html
+<h1>bind mount: after</h1>
+[exit code: 0]
+
+# [컨테이너에서 만든 파일이 호스트에 보이는지]
+$ docker exec e1-1-bind sh -c "echo from-container > /usr/share/nginx/html/from-container.txt"
+[exit code: 0]
+
+$ cat practice/bind-site/from-container.txt
+from-container
+[exit code: 0]
+
+# [컨테이너 삭제 후 호스트 파일 유지]
+$ docker rm -f e1-1-bind e1-1-nobind
+e1-1-bind
+e1-1-nobind
+[exit code: 0]
+
+$ ls practice/bind-site
+from-container.txt
+index.html
+[exit code: 0]
+
+$ cat practice/bind-site/index.html
+<h1>bind mount: after</h1>
+[exit code: 0]
+
