@@ -208,7 +208,7 @@ $ pwd
 
 Git Bash에서는 `chmod`가 반영되지 않아서([트러블슈팅 1](#트러블슈팅-1-git-bash에서-chmod가-반영되지-않음)) ubuntu 컨테이너 내부 파일시스템에서 수행했습니다. root는 권한 검사를 대부분 통과하므로, 파일은 root 소유로 만들고 일반 사용자 `ubuntu`로 접근해서 효과를 확인했습니다. 전체 출력은 [docs/logs/02-permission.log](docs/logs/02-permission.log)에 있습니다.
 
-재현할 때는 `docker run -it --rm ubuntu:24.04 bash`로 컨테이너에 들어가 아래 명령을 실행합니다. Git Bash에서 `-it` 오류가 나면 앞에 `winpty`를 붙입니다.
+재현할 때는 `docker run -it --rm ubuntu:24.04 bash`로 컨테이너에 들어가 아래 명령을 실행합니다. cmd에서는 그대로 동작하는 것을 확인했습니다. Git Bash에서 `the input device is not a TTY` 오류가 나면 cmd를 사용하거나 앞에 `winpty`를 붙입니다.
 
 **변경 전 (파일 644, 디렉토리 755)**
 
@@ -408,11 +408,30 @@ e1-1-hello
 
 ### 5.6 ubuntu 컨테이너 진입과 attach/exec 비교
 
-ubuntu 컨테이너에 들어가 `ls`, `echo`를 실행하고, 나간 뒤 컨테이너 상태가 어떻게 되는지 비교했습니다. 대화형 터미널이 없는 환경에서 실행했기 때문에 키보드 입력 대신 파이프로 명령을 넣었습니다. 직접 해볼 때는 `docker exec -it e1-1-ubuntu bash`처럼 입력하면 됩니다. 전체 출력은 [docs/logs/06-ubuntu-attach-exec.log](docs/logs/06-ubuntu-attach-exec.log)에 있습니다.
+ubuntu 컨테이너에 들어가 `ls`, `echo`를 실행하고, 나간 뒤 컨테이너 상태가 어떻게 되는지 비교했습니다. 전체 출력은 [docs/logs/06-ubuntu-attach-exec.log](docs/logs/06-ubuntu-attach-exec.log)에 있습니다.
+
+**대화형 진입 (직접 입력)**
+
+Windows 명령 프롬프트(cmd)에서 `-it` 옵션으로 컨테이너에 직접 들어가 명령을 입력했습니다. 프롬프트가 `root@컨테이너ID:/#`로 바뀌면 컨테이너 내부입니다. `-i`는 입력을 유지하고 `-t`는 터미널을 할당합니다.
+
+![ubuntu 컨테이너 대화형 진입](docs/images/06-ubuntu-interactive.png)
+
+```console
+C:\Users\yeonseo\codyssey\E1-1>docker run -it --name e1-1-ubuntu ubuntu:24.04 bash
+root@2b1b1c62eac9:/# ls
+bin  boot  dev  etc  home  lib  lib64  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  var
+root@2b1b1c62eac9:/# echo hello
+hello
+root@2b1b1c62eac9:/# exit
+exit
+
+C:\Users\yeonseo\codyssey\E1-1>docker rm e1-1-ubuntu
+e1-1-ubuntu
+```
 
 **컨테이너 실행**
 
-주 프로세스인 `bash`가 PID 1입니다.
+아래 비교 실험은 입력을 파이프로 넣어 실행했습니다. 주 프로세스인 `bash`가 PID 1입니다.
 
 ```console
 $ docker run -di --name e1-1-ubuntu ubuntu:24.04 bash
