@@ -52,6 +52,31 @@
 
 ## 5. 수행 로그
 
+### 5.0 시작 안내
+
+처음 재현할 때는 아래 순서로 시작합니다. 필요한 도구는 Git과 Docker(Windows에서는 Docker Desktop 실행 필요)입니다. 이 문서의 명령은 bash 기준이며 Windows에서는 Git Bash를 사용합니다.
+
+코드블록의 맨 앞 `$`는 명령을 입력하는 자리를 뜻하는 표시이므로 입력하지 않습니다. `$`가 없는 줄은 출력 결과입니다.
+
+```console
+$ git clone https://github.com/yeontteo/Codyssey-E1-1.git
+
+$ cd Codyssey-E1-1
+
+$ docker info --format '{{.ServerVersion}}'
+
+$ docker build -t e1-1-web:1.0 app
+
+$ docker run -d -p 8080:80 --name e1-1-web-8080 e1-1-web:1.0
+
+$ curl http://localhost:8080/healthz
+ok
+
+$ docker rm -f e1-1-web-8080
+```
+
+8080 포트가 사용 중이면 `-p 8090:80`처럼 호스트 포트를 바꾸고 접속 주소도 같이 바꿉니다. 이후 실습은 아래 5.1부터 차례로 따라 할 수 있으며, 5.8과 5.9는 위에서 빌드한 `e1-1-web:1.0` 이미지를 사용합니다.
+
 ### 5.1 터미널 기본 조작
 
 Git Bash에서 `practice/terminal` 폴더를 만들어 실습했습니다. 저장소 경로는 PC마다 다르므로, 재현할 때는 저장소 루트에서 시작하고 절대 경로 부분만 본인 경로로 바꾸면 됩니다. 아래는 발췌이고, 전체 출력은 [docs/logs/01-terminal.log](docs/logs/01-terminal.log)에 있습니다.
