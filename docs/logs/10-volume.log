@@ -1,0 +1,102 @@
+# --- 대조군: 볼륨 없이 저장 ---
+$ docker run -d --name e1-1-novol ubuntu:24.04 sleep infinity
+967040cfe9b9d68dddfab5dc3ec99b7be977962f1db34aec65a8f4fa3d6925b0
+[exit code: 0]
+
+$ docker exec e1-1-novol sh -c "mkdir /data && echo no-volume > /data/hello.txt && cat /data/hello.txt"
+no-volume
+[exit code: 0]
+
+$ docker rm -f e1-1-novol
+e1-1-novol
+[exit code: 0]
+
+$ docker run -d --name e1-1-novol2 ubuntu:24.04 sleep infinity
+dde104754f7d519604d0772258c9a6b9b7445be5d97875a60d0812424b401ad1
+[exit code: 0]
+
+$ docker exec e1-1-novol2 cat /data/hello.txt
+cat: /data/hello.txt: No such file or directory
+[exit code: 1]
+
+$ docker rm -f e1-1-novol2
+e1-1-novol2
+[exit code: 0]
+
+# --- 실험군: 볼륨 생성과 연결 ---
+$ docker volume create e1-1-data
+e1-1-data
+[exit code: 0]
+
+$ docker volume ls --filter name=e1-1
+DRIVER    VOLUME NAME
+local     e1-1-data
+[exit code: 0]
+
+$ docker volume inspect e1-1-data
+[
+    {
+        "CreatedAt": "2026-11-06T05:35:05Z",
+        "Driver": "local",
+        "Labels": null,
+        "Mountpoint": "/var/lib/docker/volumes/e1-1-data/_data",
+        "Name": "e1-1-data",
+        "Options": null,
+        "Scope": "local"
+    }
+]
+[exit code: 0]
+
+$ docker run -d --name e1-1-vol -v e1-1-data:/data ubuntu:24.04 sleep infinity
+6955043437cde562ed200c5e070c8ab5685379c4ff8fe5a21381812593e5f76a
+[exit code: 0]
+
+$ docker inspect -f "{{range .Mounts}}{{.Type}} {{.Name}} -> {{.Destination}}{{end}}" e1-1-vol
+volume e1-1-data -> /data
+[exit code: 0]
+
+# [컨테이너 삭제 전]
+$ docker exec e1-1-vol sh -c "echo persisted-data > /data/hello.txt && cat /data/hello.txt"
+persisted-data
+[exit code: 0]
+
+$ docker rm -f e1-1-vol
+e1-1-vol
+[exit code: 0]
+
+$ docker ps -a --filter name=e1-1
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+[exit code: 0]
+
+$ docker volume ls --filter name=e1-1
+DRIVER    VOLUME NAME
+local     e1-1-data
+[exit code: 0]
+
+# [컨테이너 삭제 후: 새 컨테이너에 같은 볼륨 연결]
+$ docker run -d --name e1-1-vol2 -v e1-1-data:/data ubuntu:24.04 sleep infinity
+9a652755b72e8e9dd78328cca4c67a4e5c3505a29cbabf9aeeeafc29a9ad16e2
+[exit code: 0]
+
+$ docker exec e1-1-vol2 cat /data/hello.txt
+persisted-data
+[exit code: 0]
+
+$ docker exec e1-1-vol2 ls -l /data
+total 4
+-rw-r--r-- 1 root root 15 Nov  6 05:35 hello.txt
+[exit code: 0]
+
+# [정리]
+$ docker rm -f e1-1-vol2
+e1-1-vol2
+[exit code: 0]
+
+$ docker volume rm e1-1-data
+e1-1-data
+[exit code: 0]
+
+$ docker volume ls --filter name=e1-1
+DRIVER    VOLUME NAME
+[exit code: 0]
+

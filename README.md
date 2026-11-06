@@ -27,7 +27,7 @@
 - [x] Dockerfile 커스텀 이미지 빌드/실행
 - [x] 포트 매핑 접속 (브라우저 화면 첨부)
 - [x] 바인드 마운트 반영 (변경 전/후 비교)
-- [ ] Docker 볼륨 영속성 (컨테이너 삭제 전/후 비교)
+- [x] Docker 볼륨 영속성 (컨테이너 삭제 전/후 비교)
 - [ ] Git 설정 (`git config --list`)
 - [ ] VSCode GitHub 연동 및 저장소 공개
 - [x] 트러블슈팅 2건 이상 정리
@@ -46,6 +46,7 @@
 | 커스텀 이미지 | `docker build`, `docker ps`, `wget -S` | 빌드 성공, `healthy` 상태, 페이지 응답과 `X-App-Env` 헤더 | [5.7](#57-dockerfile-커스텀-이미지), [전체 로그](docs/logs/07-custom-image.log) |
 | 포트 매핑 | `docker port`, `curl`, 브라우저, `docker logs` | 매핑 전 접속 실패, 8080/8081 접속 성공, 브라우저 요청 기록 | [5.8](#58-포트-매핑-접속), [전체 로그](docs/logs/08-port-mapping.log) |
 | 바인드 마운트 | `docker inspect`, `curl`, `docker exec cat` | 호스트 수정 전/후 응답 비교, 마운트 없는 컨테이너와 비교 | [5.9](#59-바인드-마운트-반영), [전체 로그](docs/logs/09-bind-mount.log) |
+| 볼륨 영속성 | `docker volume create/ls`, `docker inspect`, `docker exec cat` | 컨테이너 삭제 전/후 데이터 유지, 볼륨 없는 경우와 비교 | [5.10](#510-docker-볼륨-영속성), [전체 로그](docs/logs/10-volume.log) |
 
 ## 5. 수행 로그
 
@@ -661,6 +662,91 @@ index.html
 $ cat practice/bind-site/index.html
 <h1>bind mount: after</h1>
 ```
+
+### 5.10 Docker 볼륨 영속성
+
+컨테이너 안에 쓴 데이터는 컨테이너의 쓰기 레이어에 저장되어 컨테이너를 삭제하면 함께 사라집니다. 볼륨은 Docker가 관리하는 저장 공간으로, 컨테이너와 수명이 분리되어 있습니다. 볼륨이 없는 경우와 비교했습니다. 전체 출력은 [docs/logs/10-volume.log](docs/logs/10-volume.log)에 있습니다.
+
+Git Bash에서 재현할 때는 `export MSYS_NO_PATHCONV=1`을 먼저 실행합니다.
+
+**대조군: 볼륨 없이 저장하면 삭제 후 사라짐**
+
+```console
+$ docker run -d --name e1-1-novol ubuntu:24.04 sleep infinity
+967040cfe9b9d68dddfab5dc3ec99b7be977962f1db34aec65a8f4fa3d6925b0
+
+$ docker exec e1-1-novol sh -c "mkdir /data && echo no-volume > /data/hello.txt && cat /data/hello.txt"
+no-volume
+
+$ docker rm -f e1-1-novol
+e1-1-novol
+
+$ docker run -d --name e1-1-novol2 ubuntu:24.04 sleep infinity
+dde104754f7d519604d0772258c9a6b9b7445be5d97875a60d0812424b401ad1
+
+$ docker exec e1-1-novol2 cat /data/hello.txt
+cat: /data/hello.txt: No such file or directory
+```
+
+**볼륨 생성과 연결**
+
+```console
+$ docker volume create e1-1-data
+e1-1-data
+
+$ docker volume ls --filter name=e1-1
+DRIVER    VOLUME NAME
+local     e1-1-data
+
+$ docker run -d --name e1-1-vol -v e1-1-data:/data ubuntu:24.04 sleep infinity
+6955043437cde562ed200c5e070c8ab5685379c4ff8fe5a21381812593e5f76a
+
+$ docker inspect -f "{{range .Mounts}}{{.Type}} {{.Name}} -> {{.Destination}}{{end}}" e1-1-vol
+volume e1-1-data -> /data
+```
+
+**컨테이너 삭제 전**
+
+```console
+$ docker exec e1-1-vol sh -c "echo persisted-data > /data/hello.txt && cat /data/hello.txt"
+persisted-data
+
+$ docker rm -f e1-1-vol
+e1-1-vol
+
+$ docker ps -a --filter name=e1-1
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+
+$ docker volume ls --filter name=e1-1
+DRIVER    VOLUME NAME
+local     e1-1-data
+```
+
+**컨테이너 삭제 후: 새 컨테이너에서 데이터 유지 확인**
+
+```console
+$ docker run -d --name e1-1-vol2 -v e1-1-data:/data ubuntu:24.04 sleep infinity
+9a652755b72e8e9dd78328cca4c67a4e5c3505a29cbabf9aeeeafc29a9ad16e2
+
+$ docker exec e1-1-vol2 cat /data/hello.txt
+persisted-data
+
+$ docker exec e1-1-vol2 ls -l /data
+total 4
+-rw-r--r-- 1 root root 15 Nov  6 05:35 hello.txt
+```
+
+검증 후 `docker rm -f e1-1-vol2`, `docker volume rm e1-1-data`로 정리했습니다. 볼륨은 직접 지우기 전까지 남습니다.
+
+**바인드 마운트와 볼륨 비교**
+
+| 구분 | 바인드 마운트 | 볼륨 |
+| --- | --- | --- |
+| 저장 위치 | 내가 지정한 호스트 폴더 | Docker가 관리하는 영역 |
+| 지정 방식 | `-v 호스트경로:컨테이너경로` | `-v 볼륨이름:컨테이너경로` |
+| 호스트 경로 의존 | 있음 (PC마다 경로가 다름) | 없음 |
+| 적합한 용도 | 개발 중 소스 코드 즉시 반영 | DB 같은 영속 데이터 보관 |
+
 
 ## 6. 트러블슈팅
 
