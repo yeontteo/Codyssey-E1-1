@@ -1,0 +1,80 @@
+$ git --version
+git version 2.50.1.windows.1
+[exit code: 0]
+
+$ git config --global --get user.name
+Yeonseo Nam
+[exit code: 0]
+
+$ git config --global --get user.email
+151910330+yeontteo@users.noreply.github.com
+[exit code: 0]
+
+$ git config --global --get init.defaultBranch
+main
+[exit code: 0]
+
+$ git config --list
+diff.astextplain.textconv=astextplain
+filter.lfs.clean=git-lfs clean -- %f
+filter.lfs.smudge=git-lfs smudge -- %f
+filter.lfs.process=git-lfs filter-process
+filter.lfs.required=true
+http.sslbackend=schannel
+core.autocrlf=true
+core.fscache=true
+core.symlinks=false
+pull.rebase=false
+credential.helper=manager
+credential.https://dev.azure.com.usehttppath=true
+init.defaultbranch=master
+user.email=151910330+yeontteo@users.noreply.github.com
+user.name=Yeonseo Nam
+init.defaultbranch=main
+core.repositoryformatversion=0
+core.filemode=false
+core.bare=false
+core.logallrefupdates=true
+core.symlinks=false
+core.ignorecase=true
+remote.origin.url=https://github.com/yeontteo/Codyssey-E1-1.git
+remote.origin.fetch=+refs/heads/*:refs/remotes/origin/*
+user.name=Yeonseo Nam
+user.email=151910330+yeontteo@users.noreply.github.com
+branch.main.remote=origin
+branch.main.merge=refs/heads/main
+[exit code: 0]
+
+$ git remote -v
+origin	https://github.com/yeontteo/Codyssey-E1-1.git (fetch)
+origin	https://github.com/yeontteo/Codyssey-E1-1.git (push)
+[exit code: 0]
+
+$ git branch -vv
+* main b87f455 [origin/main] 10단계 Docker 볼륨 영속성 검증 결과 추가
+[exit code: 0]
+
+$ git status --short --branch
+## main...origin/main
+?? docs/logs/11-git-github.log
+[exit code: 0]
+
+$ git log --oneline -6
+b87f455 10단계 Docker 볼륨 영속성 검증 결과 추가
+971896e 9단계 바인드 마운트 검증 결과 추가
+23c0bcc 8단계 포트 매핑 접속 결과 추가
+38540e7 7단계 Dockerfile 커스텀 이미지 추가
+b5a15b7 미션 01 1~6단계 수행 기록 추가
+5625dab Initial commit
+[exit code: 0]
+
+$ git ls-remote origin main
+b87f455cd5f3cd1f43ac070ea4a4183c205e84ae	refs/heads/main
+[exit code: 0]
+
+$ curl -sS -m 15 https://api.github.com/repos/yeontteo/Codyssey-E1-1 | grep -E "\"(full_name|visibility|default_branch)\""
+  "full_name": "yeontteo/Codyssey-E1-1",
+  "visibility": "public",
+  "default_branch": "main",
+[exit code: 0]
+

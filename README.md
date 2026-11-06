@@ -28,8 +28,8 @@
 - [x] 포트 매핑 접속 (브라우저 화면 첨부)
 - [x] 바인드 마운트 반영 (변경 전/후 비교)
 - [x] Docker 볼륨 영속성 (컨테이너 삭제 전/후 비교)
-- [ ] Git 설정 (`git config --list`)
-- [ ] VSCode GitHub 연동 및 저장소 공개
+- [x] Git 설정 (`git config --list`)
+- [x] VSCode GitHub 연동 및 저장소 공개
 - [x] 트러블슈팅 2건 이상 정리
 - [ ] 보너스 과제 (선택)
 
@@ -47,6 +47,8 @@
 | 포트 매핑 | `docker port`, `curl`, 브라우저, `docker logs` | 매핑 전 접속 실패, 8080/8081 접속 성공, 브라우저 요청 기록 | [5.8](#58-포트-매핑-접속), [전체 로그](docs/logs/08-port-mapping.log) |
 | 바인드 마운트 | `docker inspect`, `curl`, `docker exec cat` | 호스트 수정 전/후 응답 비교, 마운트 없는 컨테이너와 비교 | [5.9](#59-바인드-마운트-반영), [전체 로그](docs/logs/09-bind-mount.log) |
 | 볼륨 영속성 | `docker volume create/ls`, `docker inspect`, `docker exec cat` | 컨테이너 삭제 전/후 데이터 유지, 볼륨 없는 경우와 비교 | [5.10](#510-docker-볼륨-영속성), [전체 로그](docs/logs/10-volume.log) |
+| Git 설정 | `git config --list` | 사용자 정보와 기본 브랜치 | [5.11](#511-git-설정), [전체 로그](docs/logs/11-git-github.log) |
+| GitHub 연동 | `git remote -v`, `git ls-remote`, GitHub API, VSCode 화면 | 원격 연결, 로컬/원격 커밋 일치, 공개 상태, VSCode 로그인 | [5.12](#512-github-및-vscode-연동), [전체 로그](docs/logs/11-git-github.log) |
 
 ## 5. 수행 로그
 
@@ -747,6 +749,94 @@ total 4
 | 호스트 경로 의존 | 있음 (PC마다 경로가 다름) | 없음 |
 | 적합한 용도 | 개발 중 소스 코드 즉시 반영 | DB 같은 영속 데이터 보관 |
 
+
+### 5.11 Git 설정
+
+Git은 커밋마다 작성자 이름과 이메일을 기록하고, 공개 저장소에서는 이 값을 누구나 볼 수 있습니다. 개인 이메일이 노출되지 않도록 GitHub가 제공하는 noreply 주소를 사용했습니다. 재현할 때는 본인의 이름과 이메일로 바꿉니다. 전체 출력은 [docs/logs/11-git-github.log](docs/logs/11-git-github.log)에 있습니다.
+
+```console
+$ git config --global user.name "Yeonseo Nam"
+
+$ git config --global user.email "151910330+yeontteo@users.noreply.github.com"
+
+$ git config --global --get init.defaultBranch
+main
+
+$ git config --list
+diff.astextplain.textconv=astextplain
+filter.lfs.clean=git-lfs clean -- %f
+filter.lfs.smudge=git-lfs smudge -- %f
+filter.lfs.process=git-lfs filter-process
+filter.lfs.required=true
+http.sslbackend=schannel
+core.autocrlf=true
+core.fscache=true
+core.symlinks=false
+pull.rebase=false
+credential.helper=manager
+credential.https://dev.azure.com.usehttppath=true
+init.defaultbranch=master
+user.email=151910330+yeontteo@users.noreply.github.com
+user.name=Yeonseo Nam
+init.defaultbranch=main
+core.repositoryformatversion=0
+core.filemode=false
+core.bare=false
+core.logallrefupdates=true
+core.symlinks=false
+core.ignorecase=true
+remote.origin.url=https://github.com/yeontteo/Codyssey-E1-1.git
+remote.origin.fetch=+refs/heads/*:refs/remotes/origin/*
+user.name=Yeonseo Nam
+user.email=151910330+yeontteo@users.noreply.github.com
+branch.main.remote=origin
+branch.main.merge=refs/heads/main
+```
+
+같은 키가 여러 번 나오는 이유는 시스템, 전역, 저장소 설정을 차례로 출력하기 때문입니다. 뒤에 나온 값이 우선하므로 `init.defaultbranch`는 시스템의 `master`가 아니라 전역의 `main`이 적용됩니다. 출력에서 `core.filemode=false`는 Windows에서 Git이 실행 권한 변화를 추적하지 않는다는 뜻으로, 권한 실습을 컨테이너에서 수행한 이유와 같은 맥락입니다.
+
+### 5.12 GitHub 및 VSCode 연동
+
+Git은 내 PC에서 변경 이력을 관리하는 도구이고, GitHub는 그 이력을 원격에 저장하고 다른 사람과 협업하는 플랫폼입니다. 그래서 커밋은 인터넷 없이도 로컬에서 만들 수 있고, `git push`를 해야 GitHub에 올라갑니다.
+
+**원격 저장소 연결과 공개 여부**
+
+```console
+$ git remote -v
+origin	https://github.com/yeontteo/Codyssey-E1-1.git (fetch)
+origin	https://github.com/yeontteo/Codyssey-E1-1.git (push)
+
+$ git branch -vv
+* main b87f455 [origin/main] 10단계 Docker 볼륨 영속성 검증 결과 추가
+
+$ git log --oneline -6
+b87f455 10단계 Docker 볼륨 영속성 검증 결과 추가
+971896e 9단계 바인드 마운트 검증 결과 추가
+23c0bcc 8단계 포트 매핑 접속 결과 추가
+38540e7 7단계 Dockerfile 커스텀 이미지 추가
+b5a15b7 미션 01 1~6단계 수행 기록 추가
+5625dab Initial commit
+
+$ git ls-remote origin main
+b87f455cd5f3cd1f43ac070ea4a4183c205e84ae	refs/heads/main
+
+$ curl -sS -m 15 https://api.github.com/repos/yeontteo/Codyssey-E1-1 | grep -E "\"(full_name|visibility|default_branch)\""
+  "full_name": "yeontteo/Codyssey-E1-1",
+  "visibility": "public",
+  "default_branch": "main",
+```
+
+로컬 `main`과 원격 `main`의 커밋이 `b87f455`로 일치하고, 저장소는 공개 상태입니다.
+
+**VSCode GitHub 로그인**
+
+![VSCode GitHub 로그인 상태](docs/images/12-vscode-github-login.png)
+
+**VSCode 소스 제어 탭의 저장소 연동**
+
+`main` 브랜치와 커밋 기록, 원격 브랜치 표시(구름 아이콘)를 확인할 수 있습니다.
+
+![VSCode 소스 제어 탭](docs/images/12-vscode-source-control.png)
 
 ## 6. 트러블슈팅
 
