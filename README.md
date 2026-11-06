@@ -24,7 +24,7 @@
 - [x] Docker 기본 운영 명령 (images, ps, logs, stats)
 - [x] hello-world 실행
 - [x] ubuntu 컨테이너 진입 및 attach/exec 차이 정리
-- [ ] Dockerfile 커스텀 이미지 빌드/실행
+- [x] Dockerfile 커스텀 이미지 빌드/실행
 - [ ] 포트 매핑 접속 (브라우저 화면 첨부)
 - [ ] 바인드 마운트 반영 (변경 전/후 비교)
 - [ ] Docker 볼륨 영속성 (컨테이너 삭제 전/후 비교)
@@ -43,6 +43,7 @@
 | Docker 운영 | `docker images`, `docker ps`, `docker ps -a`, `docker logs`, `docker stats` | 이미지 다운로드, 컨테이너 실행/중지/삭제 상태, 로그, 리소스 사용량 | [5.4](#54-docker-기본-운영-명령), [전체 로그](docs/logs/04-docker-ops.log) |
 | hello-world | `docker run hello-world`, `docker ps -a` | `Hello from Docker!` 출력과 `Exited (0)` 종료 상태 | [5.5](#55-hello-world-실행), [전체 로그](docs/logs/05-hello-world.log) |
 | ubuntu 진입 | `docker exec`, `docker attach`, `docker ps -a` | 내부 명령 출력과 exec/attach 후 컨테이너 상태 차이 | [5.6](#56-ubuntu-컨테이너-진입과-attachexec-비교), [전체 로그](docs/logs/06-ubuntu-attach-exec.log) |
+| 커스텀 이미지 | `docker build`, `docker ps`, `wget -S` | 빌드 성공, `healthy` 상태, 페이지 응답과 `X-App-Env` 헤더 | [5.7](#57-dockerfile-커스텀-이미지), [전체 로그](docs/logs/07-custom-image.log) |
 
 ## 5. 수행 로그
 
@@ -446,6 +447,83 @@ Error response from daemon: container 7b0a399c9115d28d601e4b048eeaa41e04d5843ae0
 | 적합한 용도 | 실행 중인 서비스 점검, 디버깅 | 주 프로세스의 입출력을 직접 볼 때 |
 
 실행 중인 서비스를 살펴볼 때는 서비스를 멈출 위험이 없는 `exec`가 안전합니다.
+
+### 5.7 Dockerfile 커스텀 이미지
+
+미션의 (A) 방식을 선택했습니다. 웹 서버 베이스 이미지 `nginx:alpine`을 기반으로 정적 콘텐츠와 설정을 교체했습니다. 전체 출력은 [docs/logs/07-custom-image.log](docs/logs/07-custom-image.log)에 있습니다.
+
+| 파일 | 역할 |
+| --- | --- |
+| [app/Dockerfile](app/Dockerfile) | 이미지 빌드 절차 |
+| [app/site/index.html](app/site/index.html) | 웹 서버 정적 페이지 |
+| [app/nginx/default.conf.template](app/nginx/default.conf.template) | nginx 서버 설정 |
+
+**커스텀 포인트**
+
+| 항목 | 적용 내용 | 목적 |
+| --- | --- | --- |
+| `LABEL` | 이미지 제목과 설명 | 이미지 정보 기록 |
+| `ENV APP_ENV=dev` | 기본 실행 환경 값 지정 | 코드 수정 없이 실행 시 설정 변경 |
+| `COPY nginx/...` | `/healthz` 경로, `server_tokens off`, `X-App-Env` 헤더 | 상태 확인 경로 제공, 서버 버전 노출 차단, 실행 환경 확인 |
+| `COPY site/` | 기본 환영 페이지 교체 | 직접 만든 콘텐츠 제공 |
+| `HEALTHCHECK` | 5초마다 `/healthz` 요청 | 프로세스 실행 여부가 아니라 실제 응답으로 상태 판단 |
+
+**빌드**
+
+저장소 루트에서 실행합니다. 마지막 인자 `app`이 빌드 컨텍스트이며, 이 폴더 안의 파일만 `COPY`할 수 있습니다.
+
+```console
+$ docker build --progress=plain -t e1-1-web:1.0 app
+...
+#5 [1/3] FROM docker.io/library/nginx:alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
+#6 [2/3] COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
+#7 [3/3] COPY site/ /usr/share/nginx/html/
+#8 naming to docker.io/library/e1-1-web:1.0 0.0s done
+...
+
+$ docker images e1-1-web
+IMAGE          ID             DISK USAGE   CONTENT SIZE   EXTRA
+e1-1-web:1.0   b092d848ec3f       93.6MB         26.3MB        
+```
+
+**실행과 상태 확인**
+
+아직 포트를 연결하지 않았으므로 컨테이너 내부에서 요청했습니다. Git Bash에서 `/dev/null` 같은 컨테이너 경로가 Windows 경로로 바뀌면 `export MSYS_NO_PATHCONV=1`을 먼저 실행합니다.
+
+```console
+$ docker run -d --name e1-1-custom e1-1-web:1.0
+175737aecbb50ac90584ad1f36db59eb7a9777ef9743f5c8cf9738bba9976cbb
+
+$ docker ps --filter name=e1-1
+CONTAINER ID   IMAGE          COMMAND                   CREATED         STATUS                   PORTS     NAMES
+175737aecbb5   e1-1-web:1.0   "/docker-entrypoint.…"   7 seconds ago   Up 6 seconds (healthy)   80/tcp    e1-1-custom
+
+$ docker exec e1-1-custom wget -qO- http://127.0.0.1/healthz
+ok
+
+$ docker exec e1-1-custom wget -S -qO /dev/null http://127.0.0.1/
+  HTTP/1.1 200 OK
+  Server: nginx
+  ...
+  X-App-Env: dev
+```
+
+`Server` 헤더에 버전이 없으므로 `server_tokens off`가 적용되었습니다.
+
+**환경 변수로 설정 변경**
+
+같은 이미지를 다시 빌드하지 않고 실행 옵션만 바꿨더니 응답 헤더 값이 달라졌습니다.
+
+```console
+$ docker run -d --name e1-1-custom-prod -e APP_ENV=prod e1-1-web:1.0
+d992cad991f86a0ad697963d5c3bc5c51565f1af040d14cbacf88a9782dd42de
+
+$ docker exec e1-1-custom-prod wget -S -qO /dev/null http://127.0.0.1/
+  HTTP/1.1 200 OK
+  Server: nginx
+  ...
+  X-App-Env: prod
+```
 
 ## 6. 트러블슈팅
 

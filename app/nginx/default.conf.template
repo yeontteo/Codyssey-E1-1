@@ -1,0 +1,24 @@
+server {
+    listen 80;
+    server_name _;
+
+    # 응답 헤더에서 nginx 버전을 숨긴다
+    server_tokens off;
+
+    # 어떤 환경으로 실행 중인지 응답 헤더로 확인한다
+    add_header X-App-Env "${APP_ENV}" always;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    # 헬스체크 전용 경로
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+}
