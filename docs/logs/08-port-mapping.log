@@ -1,0 +1,89 @@
+# --- 포트 매핑 없이 실행: 호스트에서 접속 불가 ---
+$ docker run -d --name e1-1-noport e1-1-web:1.0
+dd550e1ff57fc2830444fc7d6786b7a00dc592ecd248fda10b40f4d769787b3a
+[exit code: 0]
+
+$ docker port e1-1-noport
+[exit code: 0]
+
+$ curl -sS -m 3 http://localhost:80/healthz
+curl: (7) Failed to connect to localhost port 80 after 2232 ms: Could not connect to server
+[exit code: 7]
+
+$ docker rm -f e1-1-noport
+e1-1-noport
+[exit code: 0]
+
+# --- 포트 매핑 실행 ---
+$ docker run -d -p 8080:80 --name e1-1-web-8080 e1-1-web:1.0
+b79b1a9ad8e09918c694f9feec9c18405ad2e2dc36b1b422dfae188c738d21c3
+[exit code: 0]
+
+$ docker run -d -p 8081:80 --name e1-1-web-8081 e1-1-web:1.0
+fb089cd8d9aa36fc0df25643f8b59a3e4e1e79a35f5da20de7c40d5b1538078d
+[exit code: 0]
+
+$ docker ps --filter name=e1-1
+CONTAINER ID   IMAGE          COMMAND                   CREATED         STATUS                            PORTS                                     NAMES
+fb089cd8d9aa   e1-1-web:1.0   "/docker-entrypoint.…"   5 seconds ago   Up 4 seconds (health: starting)   0.0.0.0:8081->80/tcp, [::]:8081->80/tcp   e1-1-web-8081
+b79b1a9ad8e0   e1-1-web:1.0   "/docker-entrypoint.…"   6 seconds ago   Up 5 seconds (healthy)            0.0.0.0:8080->80/tcp, [::]:8080->80/tcp   e1-1-web-8080
+[exit code: 0]
+
+$ docker port e1-1-web-8080
+80/tcp -> 0.0.0.0:8080
+80/tcp -> [::]:8080
+[exit code: 0]
+
+$ docker port e1-1-web-8081
+80/tcp -> 0.0.0.0:8081
+80/tcp -> [::]:8081
+[exit code: 0]
+
+$ curl -sS -m 5 http://localhost:8080/healthz
+ok
+[exit code: 0]
+
+$ curl -sS -m 5 http://localhost:8081/healthz
+ok
+[exit code: 0]
+
+$ curl -sS -m 5 -I http://localhost:8080/
+HTTP/1.1 200 OK
+Server: nginx
+Date: Fri, 06 Nov 2026 05:31:09 GMT
+Content-Type: text/html
+Content-Length: 686
+Last-Modified: Fri, 06 Nov 2026 05:29:14 GMT
+Connection: keep-alive
+ETag: "6aed65aa-2ae"
+X-App-Env: dev
+Accept-Ranges: bytes
+
+[exit code: 0]
+
+$ curl -sS -m 5 http://localhost:8081/ | grep -E "<title>|<h1>"
+  <title>E1-1 개발 워크스테이션</title>
+  <h1>E1-1 개발 워크스테이션</h1>
+[exit code: 0]
+
+$ docker logs --tail 3 e1-1-web-8080
+2026/11/06 05:31:03 [notice] 1#1: start worker process 37
+2026/11/06 05:31:03 [notice] 1#1: start worker process 38
+172.17.0.1 - - [06/Nov/2026:05:31:09 +0000] "HEAD / HTTP/1.1" 200 0 "-" "curl/8.14.1" "-"
+[exit code: 0]
+
+# --- 브라우저 접속 후 access log 확인 (User-Agent 제외) ---
+$ docker logs e1-1-web-8080 2>&1 | grep "GET / " | tail -2 | cut -d" " -f1-9
+172.17.0.1 - - [06/Nov/2026:05:31:25 +0000] "GET / HTTP/1.1" 200
+[exit code: 0]
+
+$ docker logs e1-1-web-8081 2>&1 | grep "GET / " | tail -2 | cut -d" " -f1-9
+172.17.0.1 - - [06/Nov/2026:05:31:09 +0000] "GET / HTTP/1.1" 200
+172.17.0.1 - - [06/Nov/2026:05:31:45 +0000] "GET / HTTP/1.1" 200
+[exit code: 0]
+
+$ docker rm -f e1-1-web-8080 e1-1-web-8081
+e1-1-web-8080
+e1-1-web-8081
+[exit code: 0]
+

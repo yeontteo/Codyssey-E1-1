@@ -25,7 +25,7 @@
 - [x] hello-world 실행
 - [x] ubuntu 컨테이너 진입 및 attach/exec 차이 정리
 - [x] Dockerfile 커스텀 이미지 빌드/실행
-- [ ] 포트 매핑 접속 (브라우저 화면 첨부)
+- [x] 포트 매핑 접속 (브라우저 화면 첨부)
 - [ ] 바인드 마운트 반영 (변경 전/후 비교)
 - [ ] Docker 볼륨 영속성 (컨테이너 삭제 전/후 비교)
 - [ ] Git 설정 (`git config --list`)
@@ -44,6 +44,7 @@
 | hello-world | `docker run hello-world`, `docker ps -a` | `Hello from Docker!` 출력과 `Exited (0)` 종료 상태 | [5.5](#55-hello-world-실행), [전체 로그](docs/logs/05-hello-world.log) |
 | ubuntu 진입 | `docker exec`, `docker attach`, `docker ps -a` | 내부 명령 출력과 exec/attach 후 컨테이너 상태 차이 | [5.6](#56-ubuntu-컨테이너-진입과-attachexec-비교), [전체 로그](docs/logs/06-ubuntu-attach-exec.log) |
 | 커스텀 이미지 | `docker build`, `docker ps`, `wget -S` | 빌드 성공, `healthy` 상태, 페이지 응답과 `X-App-Env` 헤더 | [5.7](#57-dockerfile-커스텀-이미지), [전체 로그](docs/logs/07-custom-image.log) |
+| 포트 매핑 | `docker port`, `curl`, 브라우저, `docker logs` | 매핑 전 접속 실패, 8080/8081 접속 성공, 브라우저 요청 기록 | [5.8](#58-포트-매핑-접속), [전체 로그](docs/logs/08-port-mapping.log) |
 
 ## 5. 수행 로그
 
@@ -523,6 +524,75 @@ $ docker exec e1-1-custom-prod wget -S -qO /dev/null http://127.0.0.1/
   Server: nginx
   ...
   X-App-Env: prod
+```
+
+### 5.8 포트 매핑 접속
+
+컨테이너는 격리된 네트워크 안에서 실행되므로, 내부 포트로는 호스트에서 바로 접속할 수 없습니다. `-p 호스트포트:컨테이너포트`를 지정하면 호스트 포트로 들어온 요청이 컨테이너 포트로 전달됩니다. 전체 출력은 [docs/logs/08-port-mapping.log](docs/logs/08-port-mapping.log)에 있습니다.
+
+**포트 매핑 없이 실행: 접속 실패**
+
+```console
+$ docker run -d --name e1-1-noport e1-1-web:1.0
+dd550e1ff57fc2830444fc7d6786b7a00dc592ecd248fda10b40f4d769787b3a
+
+$ docker port e1-1-noport
+
+$ curl -sS -m 3 http://localhost:80/healthz
+curl: (7) Failed to connect to localhost port 80 after 2232 ms: Could not connect to server
+```
+
+**포트 매핑 실행: 2개 포트로 접속 성공**
+
+두 컨테이너의 내부 포트는 모두 80이지만, 각자 격리되어 있고 호스트 포트가 달라서 충돌하지 않습니다. 호스트의 8080, 8081 포트가 이미 사용 중이면 다른 포트로 바꿔서 실행합니다.
+
+```console
+$ docker run -d -p 8080:80 --name e1-1-web-8080 e1-1-web:1.0
+b79b1a9ad8e09918c694f9feec9c18405ad2e2dc36b1b422dfae188c738d21c3
+
+$ docker run -d -p 8081:80 --name e1-1-web-8081 e1-1-web:1.0
+fb089cd8d9aa36fc0df25643f8b59a3e4e1e79a35f5da20de7c40d5b1538078d
+
+$ docker port e1-1-web-8080
+80/tcp -> 0.0.0.0:8080
+80/tcp -> [::]:8080
+
+$ docker port e1-1-web-8081
+80/tcp -> 0.0.0.0:8081
+80/tcp -> [::]:8081
+
+$ curl -sS -m 5 http://localhost:8080/healthz
+ok
+
+$ curl -sS -m 5 http://localhost:8081/healthz
+ok
+
+$ curl -sS -m 5 http://localhost:8081/ | grep -E "<title>|<h1>"
+  <title>E1-1 개발 워크스테이션</title>
+  <h1>E1-1 개발 워크스테이션</h1>
+```
+
+**브라우저 접속 화면**
+
+`http://localhost:8080`
+
+![8080 포트 브라우저 접속 화면](docs/images/08-port-8080.png)
+
+`http://localhost:8081`
+
+![8081 포트 브라우저 접속 화면](docs/images/08-port-8081.png)
+
+**접속 기록 확인**
+
+브라우저 요청이 각 컨테이너의 nginx 로그에 남았습니다. 8081의 05:31:09 기록은 위의 `curl` 요청이고, 05:31:45 기록이 브라우저 요청입니다. 출발지 `172.17.0.1`은 Docker 네트워크의 게이트웨이 주소입니다.
+
+```console
+$ docker logs e1-1-web-8080 2>&1 | grep "GET / " | tail -2 | cut -d" " -f1-9
+172.17.0.1 - - [06/Nov/2026:05:31:25 +0000] "GET / HTTP/1.1" 200
+
+$ docker logs e1-1-web-8081 2>&1 | grep "GET / " | tail -2 | cut -d" " -f1-9
+172.17.0.1 - - [06/Nov/2026:05:31:09 +0000] "GET / HTTP/1.1" 200
+172.17.0.1 - - [06/Nov/2026:05:31:45 +0000] "GET / HTTP/1.1" 200
 ```
 
 ## 6. 트러블슈팅
