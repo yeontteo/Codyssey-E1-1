@@ -1,0 +1,103 @@
+$ pwd
+/c/Users/yeonseo/codyssey/E1-1
+
+$ ls -la
+total 0
+drwxr-xr-x 1 yeonseo 197121 0 Nov  6 01:05 .
+drwxr-xr-x 1 yeonseo 197121 0 Nov  6 01:00 ..
+drwxr-xr-x 1 yeonseo 197121 0 Nov  6 01:06 docs
+
+$ mkdir -p practice/terminal
+
+$ cd practice/terminal
+
+$ pwd
+/c/Users/yeonseo/codyssey/E1-1/practice/terminal
+
+$ touch empty.txt
+
+$ echo "hello codyssey" > notes.txt
+
+$ ls -la
+total 1
+drwxr-xr-x 1 yeonseo 197121  0 Nov  6 01:06 .
+drwxr-xr-x 1 yeonseo 197121  0 Nov  6 01:06 ..
+-rw-r--r-- 1 yeonseo 197121  0 Nov  6 01:06 empty.txt
+-rw-r--r-- 1 yeonseo 197121 15 Nov  6 01:06 notes.txt
+
+$ cat notes.txt
+hello codyssey
+
+$ wc -c empty.txt notes.txt
+ 0 empty.txt
+15 notes.txt
+15 total
+
+$ cp notes.txt notes_copy.txt
+
+$ mkdir backup
+
+$ cp -r backup backup_copy
+
+$ mv notes_copy.txt backup/
+
+$ mv backup/notes_copy.txt backup/renamed.txt
+
+$ ls -la backup
+total 5
+drwxr-xr-x 1 yeonseo 197121  0 Nov  6 01:06 .
+drwxr-xr-x 1 yeonseo 197121  0 Nov  6 01:06 ..
+-rw-r--r-- 1 yeonseo 197121 15 Nov  6 01:06 renamed.txt
+
+$ cat backup/renamed.txt
+hello codyssey
+
+$ rm empty.txt
+
+$ rm -r backup_copy
+
+$ ls -la
+total 5
+drwxr-xr-x 1 yeonseo 197121  0 Nov  6 01:06 .
+drwxr-xr-x 1 yeonseo 197121  0 Nov  6 01:06 ..
+drwxr-xr-x 1 yeonseo 197121  0 Nov  6 01:06 backup
+-rw-r--r-- 1 yeonseo 197121 15 Nov  6 01:06 notes.txt
+
+$ cd ..
+
+$ pwd
+/c/Users/yeonseo/codyssey/E1-1/practice
+
+$ cd "$OLDPWD"
+
+$ pwd
+/c/Users/yeonseo/codyssey/E1-1/practice/terminal
+
+# --- 보충: 숨김 파일 비교, 절대/상대 경로 이동 ---
+$ cd practice/terminal
+
+$ touch .hidden
+
+$ ls
+backup
+notes.txt
+
+$ ls -a
+.
+..
+.hidden
+backup
+notes.txt
+
+$ rm .hidden
+
+$ cd /c/Users/yeonseo/codyssey/E1-1/docs
+
+$ pwd
+/c/Users/yeonseo/codyssey/E1-1/docs
+
+$ cd ../practice/terminal
+
+$ pwd
+/c/Users/yeonseo/codyssey/E1-1/practice/terminal
+

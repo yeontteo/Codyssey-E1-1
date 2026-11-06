@@ -1,0 +1,96 @@
+$ docker run -di --name e1-1-ubuntu ubuntu:24.04 bash
+7b0a399c9115d28d601e4b048eeaa41e04d5843ae0e56338c27043e737047f57
+[exit code: 0]
+
+$ docker ps --filter name=e1-1
+CONTAINER ID   IMAGE          COMMAND   CREATED         STATUS        PORTS     NAMES
+7b0a399c9115   ubuntu:24.04   "bash"    2 seconds ago   Up 1 second             e1-1-ubuntu
+[exit code: 0]
+
+$ docker exec e1-1-ubuntu ps -ef
+UID          PID    PPID  C STIME TTY          TIME CMD
+root           1       0 26 18:21 ?        00:00:00 bash
+root           7       0 90 18:21 ?        00:00:00 ps -ef
+[exit code: 0]
+
+# --- exec: 새 프로세스로 진입 후 exit ---
+$ printf 'ls /\necho hello from exec\ncat /etc/os-release | head -2\nexit\n' | docker exec -i e1-1-ubuntu bash
+bin
+boot
+dev
+etc
+home
+lib
+lib64
+media
+mnt
+opt
+proc
+root
+run
+sbin
+srv
+sys
+tmp
+usr
+var
+hello from exec
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+NAME="Ubuntu"
+[exit code: 0]
+
+$ docker ps --filter name=e1-1
+CONTAINER ID   IMAGE          COMMAND   CREATED         STATUS         PORTS     NAMES
+7b0a399c9115   ubuntu:24.04   "bash"    4 seconds ago   Up 3 seconds             e1-1-ubuntu
+[exit code: 0]
+
+# --- attach: PID 1에 연결 후 exit ---
+$ printf 'echo hello from attach\necho my pid is $$\nexit\n' | docker attach e1-1-ubuntu
+[exit code: 0]
+
+$ docker ps --filter name=e1-1
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+[exit code: 0]
+
+$ docker ps -a --filter name=e1-1
+CONTAINER ID   IMAGE          COMMAND   CREATED         STATUS                    PORTS     NAMES
+7b0a399c9115   ubuntu:24.04   "bash"    6 seconds ago   Exited (0) 1 second ago             e1-1-ubuntu
+[exit code: 0]
+
+# --- 멈춘 컨테이너에는 exec 불가 ---
+$ docker exec e1-1-ubuntu echo hi
+Error response from daemon: container 7b0a399c9115d28d601e4b048eeaa41e04d5843ae0e56338c27043e737047f57 is not running
+[exit code: 1]
+
+$ docker rm e1-1-ubuntu
+e1-1-ubuntu
+[exit code: 0]
+
+# --- 재실험: 첫 시도에서 attach 출력이 보이지 않아 입력 간격을 두고 exit 7로 다시 확인 ---
+$ docker run -di --name e1-1-ubuntu ubuntu:24.04 bash
+0bf421e201c0f30f0629d8f34f5d88f989fa4b1f167387f15189767ecf31a3c3
+[exit code: 0]
+
+$ (printf 'echo hello from attach\necho my pid is $$\n'; sleep 2; printf 'exit 7\n'; sleep 2) | docker attach e1-1-ubuntu
+hello from attach
+my pid is 1
+[exit code: 7]
+
+$ docker ps -a --filter name=e1-1
+CONTAINER ID   IMAGE          COMMAND   CREATED         STATUS                     PORTS     NAMES
+0bf421e201c0   ubuntu:24.04   "bash"    6 seconds ago   Exited (7) 2 seconds ago             e1-1-ubuntu
+[exit code: 0]
+
+$ docker logs e1-1-ubuntu
+hello from attach
+my pid is 1
+[exit code: 0]
+
+$ docker inspect -f "{{.State.Status}} {{.State.ExitCode}}" e1-1-ubuntu
+exited 7
+[exit code: 0]
+
+$ docker rm e1-1-ubuntu
+e1-1-ubuntu
+[exit code: 0]
+

@@ -1,0 +1,74 @@
+$ docker pull nginx:alpine
+alpine: Pulling from library/nginx
+b9b388a21ecf: Pulling fs layer
+7cc330898115: Pulling fs layer
+7b229517ed22: Pulling fs layer
+12b85cff06fd: Pulling fs layer
+657023555a2a: Pulling fs layer
+2ec5fb117ffa: Pulling fs layer
+26185d08a3ec: Pulling fs layer
+9b0f7dfe35b2: Pulling fs layer
+7cc330898115: Download complete
+2ec5fb117ffa: Download complete
+657023555a2a: Download complete
+26185d08a3ec: Download complete
+9b0f7dfe35b2: Download complete
+7b229517ed22: Download complete
+12b85cff06fd: Download complete
+a4d5b1f57abc: Download complete
+7b229517ed22: Pull complete
+acc2d54c3743: Download complete
+12b85cff06fd: Pull complete
+657023555a2a: Pull complete
+7cc330898115: Pull complete
+b9b388a21ecf: Download complete
+26185d08a3ec: Pull complete
+2ec5fb117ffa: Pull complete
+9b0f7dfe35b2: Pull complete
+b9b388a21ecf: Pull complete
+Digest: sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
+Status: Downloaded newer image for nginx:alpine
+docker.io/library/nginx:alpine
+
+$ docker images nginx
+IMAGE          ID             DISK USAGE   CONTENT SIZE   EXTRA
+nginx:alpine   785835ea65db       94.5MB         27.2MB        
+
+$ docker run -d --name e1-1-web nginx:alpine
+e9a71bde124c2226f612732dd7047a34a3d4ad0f0db9705b4d2fb13aa06bc56d
+
+$ docker ps --filter name=e1-1
+CONTAINER ID   IMAGE          COMMAND                   CREATED        STATUS                  PORTS     NAMES
+e9a71bde124c   nginx:alpine   "/docker-entrypoint.…"   1 second ago   Up Less than a second   80/tcp    e1-1-web
+
+$ docker logs --tail 5 e1-1-web
+2026/11/05 16:44:39 [notice] 1#1: start worker processes
+2026/11/05 16:44:39 [notice] 1#1: start worker process 30
+2026/11/05 16:44:39 [notice] 1#1: start worker process 31
+2026/11/05 16:44:39 [notice] 1#1: start worker process 32
+2026/11/05 16:44:39 [notice] 1#1: start worker process 33
+
+$ docker stats --no-stream e1-1-web
+CONTAINER ID   NAME       CPU %     MEM USAGE / LIMIT     MEM %     NET I/O         BLOCK I/O     PIDS
+e9a71bde124c   e1-1-web   0.00%     5.371MiB / 3.756GiB   0.14%     1.17kB / 126B   0B / 8.19kB   5
+
+$ docker stop e1-1-web
+e1-1-web
+
+$ docker ps --filter name=e1-1
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+
+$ docker ps -a --filter name=e1-1
+CONTAINER ID   IMAGE          COMMAND                   CREATED         STATUS                     PORTS     NAMES
+e9a71bde124c   nginx:alpine   "/docker-entrypoint.…"   8 seconds ago   Exited (0) 3 seconds ago             e1-1-web
+
+$ docker rm e1-1-web
+e1-1-web
+
+$ docker ps -a --filter name=e1-1
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+
+$ docker images nginx
+IMAGE          ID             DISK USAGE   CONTENT SIZE   EXTRA
+nginx:alpine   785835ea65db       94.5MB         27.2MB        
+

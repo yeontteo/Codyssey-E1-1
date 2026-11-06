@@ -1,0 +1,85 @@
+# --- Git Bash(Windows NTFS)에서 시험 ---
+$ cd practice/permission
+
+$ touch perm_file.txt
+
+$ mkdir perm_dir
+
+$ ls -ld perm_file.txt perm_dir
+drwxr-xr-x 1 yeonseo 197121 0 Nov  6 01:26 perm_dir
+-rw-r--r-- 1 yeonseo 197121 0 Nov  6 01:26 perm_file.txt
+
+$ chmod 600 perm_file.txt
+
+$ chmod 700 perm_dir
+
+$ ls -ld perm_file.txt perm_dir
+drwxr-xr-x 1 yeonseo 197121 0 Nov  6 01:26 perm_dir
+-rw-r--r-- 1 yeonseo 197121 0 Nov  6 01:26 perm_file.txt
+
+$ stat -c "%a %A %n" perm_file.txt perm_dir
+644 -rw-r--r-- perm_file.txt
+755 drwxr-xr-x perm_dir
+
+
+# --- ubuntu 컨테이너(리눅스 파일시스템)에서 수행 ---
+$ docker run -i --rm ubuntu:24.04 bash -s < 아래 명령들
+
+Unable to find image 'ubuntu:24.04' locally
+24.04: Pulling from library/ubuntu
+7a48b8f0e5c7: Pulling fs layer
+98144013299c: Download complete
+7a48b8f0e5c7: Download complete
+7a48b8f0e5c7: Pull complete
+Digest: sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
+Status: Downloaded newer image for ubuntu:24.04
+$ whoami
+root
+
+$ mkdir /practice && cd /practice
+
+$ echo "secret" > perm_file.txt
+
+$ mkdir perm_dir && touch perm_dir/inside.txt
+
+# [변경 전]
+$ stat -c "%a %A %U %n" perm_file.txt perm_dir
+644 -rw-r--r-- root perm_file.txt
+755 drwxr-xr-x root perm_dir
+
+$ su ubuntu -c "cat perm_file.txt"
+secret
+
+$ su ubuntu -c "ls perm_dir"
+inside.txt
+
+$ su ubuntu -c "echo hacked >> perm_file.txt"
+bash: line 1: perm_file.txt: Permission denied
+
+$ chmod 600 perm_file.txt
+
+$ chmod 700 perm_dir
+
+# [변경 후: 숫자 표기]
+$ stat -c "%a %A %U %n" perm_file.txt perm_dir
+600 -rw------- root perm_file.txt
+700 drwx------ root perm_dir
+
+$ su ubuntu -c "cat perm_file.txt"
+cat: perm_file.txt: Permission denied
+
+$ su ubuntu -c "ls perm_dir"
+ls: cannot open directory 'perm_dir': Permission denied
+
+$ chmod u=rw,g=r,o=r perm_file.txt
+
+$ chmod u=rwx,go=rx perm_dir
+
+# [복구: 기호 표기]
+$ stat -c "%a %A %U %n" perm_file.txt perm_dir
+644 -rw-r--r-- root perm_file.txt
+755 drwxr-xr-x root perm_dir
+
+$ su ubuntu -c "cat perm_file.txt"
+secret
+
